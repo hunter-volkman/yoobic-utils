@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  mock-yoobic:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    command: python mock_yoobic_server.py
+    volumes:
+      - .:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    
+  test-runner:
+    build: .
+    depends_on:
+      mock-yoobic:
+        condition: service_healthy
+    environment:
+      - MOCK_SERVER_URL=http://mock-yoobic:5000
+    command: python dev_launcher.py --test-only
+    volumes:
+      - .:/app
+      - ../yoobic:/app/yoobic
