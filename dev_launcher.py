@@ -83,10 +83,10 @@ class DevLauncher:
         """Check if the main module is available."""
         print("🔍 Checking main module...")
         
-        yoobic_path = Path("../yoobic")
+        yoobic_path = Path("../viam-yoobic")
         if not yoobic_path.exists():
-            print("❌ Main module not found at ../yoobic")
-            print("Please ensure the yoobic module is in the parent directory")
+            print("❌ Main module not found at ../viam-yoobic")
+            print("Please ensure the viam-yoobic module is in the parent directory")
             return False
         
         mission_file = yoobic_path / "src" / "models" / "mission.py"
