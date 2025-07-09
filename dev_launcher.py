@@ -83,18 +83,33 @@ class DevLauncher:
         """Check if the main module is available."""
         print("🔍 Checking main module...")
         
-        yoobic_path = Path("../viam-yoobic")
-        if not yoobic_path.exists():
-            print("❌ Main module not found at ../viam-yoobic")
-            print("Please ensure the viam-yoobic module is in the parent directory")
+        # Check for viam-yoobic directory structure
+        possible_paths = [
+            "../viam-yoobic",  # If running from yoobic-utils
+            "./viam-yoobic",   # If viam-yoobic is in current dir
+            "../../viam-yoobic" # If in subdirectory
+        ]
+        
+        viam_yoobic_path = None
+        for path in possible_paths:
+            test_path = Path(path)
+            if test_path.exists():
+                mission_file = test_path / "src" / "models" / "mission.py"
+                if mission_file.exists():
+                    viam_yoobic_path = test_path
+                    break
+        
+        if not viam_yoobic_path:
+            print("❌ viam-yoobic module not found!")
+            print("Checked these locations:")
+            for path in possible_paths:
+                full_path = Path(path).resolve()
+                print(f"  - {full_path}")
+            print("\nPlease ensure viam-yoobic module exists with:")
+            print("  viam-yoobic/src/models/mission.py")
             return False
         
-        mission_file = yoobic_path / "src" / "models" / "mission.py"
-        if not mission_file.exists():
-            print("❌ Mission module not found at ../yoobic/src/models/mission.py")
-            return False
-        
-        print("✅ Main module found")
+        print(f"✅ Main module found at {viam_yoobic_path.resolve()}")
         return True
     
     async def run_tests(self):
@@ -111,6 +126,8 @@ class DevLauncher:
             
         except Exception as e:
             print(f"❌ Error running tests: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def setup_signal_handlers(self):
@@ -132,7 +149,7 @@ class DevLauncher:
         print("2. Start mock server only")
         print("3. Test authentication")
         print("4. Test mission creation")
-        print("5. View mock server logs")
+        print("5. View mock server status")
         print("6. Reset mock data")
         print("7. Exit")
         print("=" * 30)
@@ -147,12 +164,13 @@ class DevLauncher:
         elif choice == "2":
             print("Mock server is already running at http://localhost:5000")
             print("Visit http://localhost:5000/health to check status")
+            print("Visit http://localhost:5000/debug/missions to see created missions")
         elif choice == "3":
             await self.test_authentication()
         elif choice == "4":
             await self.test_mission_creation()
         elif choice == "5":
-            self.show_server_logs()
+            self.show_server_status()
         elif choice == "6":
             self.reset_mock_data()
         elif choice == "7":
@@ -165,17 +183,17 @@ class DevLauncher:
         print("🔐 Testing authentication...")
         
         try:
-            import requests
             response = requests.post("http://localhost:5000/public/api/auth/login", 
                                    json={"username": "test_user", "password": "test_password"})
             
             if response.status_code == 200:
                 data = response.json()
                 print("✅ Authentication successful")
-                print(f"Token: {data.get('token')[:20]}...")
-                print(f"Expires: {data.get('expires')}")
+                print(f"Token: {data.get('token', 'N/A')[:20]}...")
+                print(f"Expires: {data.get('expires', 'N/A')}")
             else:
                 print(f"❌ Authentication failed: {response.status_code}")
+                print(f"Response: {response.text}")
                 
         except Exception as e:
             print(f"❌ Error testing authentication: {e}")
@@ -185,8 +203,6 @@ class DevLauncher:
         print("🎯 Testing mission creation...")
         
         try:
-            import requests
-            
             # First authenticate
             auth_response = requests.post("http://localhost:5000/public/api/auth/login", 
                                         json={"username": "test_user", "password": "test_password"})
@@ -217,31 +233,48 @@ class DevLauncher:
                 print(f"Status: {mission.get('status')}")
             else:
                 print(f"❌ Mission creation failed: {response.status_code}")
+                print(f"Response: {response.text}")
                 
         except Exception as e:
             print(f"❌ Error testing mission creation: {e}")
     
-    def show_server_logs(self):
-        """Show recent server logs."""
-        print("📋 Mock Server Logs")
+    def show_server_status(self):
+        """Show mock server status."""
+        print("📋 Mock Server Status")
         print("=" * 30)
         
-        if self.mock_server_process:
-            try:
-                # This is a simplified log viewer
-                print("Mock server is running. Check terminal where it was started for logs.")
-                print("Or visit http://localhost:5000/debug/missions to see created missions.")
-            except Exception as e:
-                print(f"Error accessing logs: {e}")
-        else:
-            print("Mock server is not running")
+        try:
+            # Check health
+            health_response = requests.get("http://localhost:5000/health", timeout=5)
+            if health_response.status_code == 200:
+                health_data = health_response.json()
+                print("✅ Server is healthy")
+                print(f"Missions: {health_data.get('missions_count', 0)}")
+                print(f"Stores: {health_data.get('stores_count', 0)}")
+                print(f"Timestamp: {health_data.get('timestamp', 'N/A')}")
+            else:
+                print(f"❌ Health check failed: {health_response.status_code}")
+            
+            # Check missions
+            missions_response = requests.get("http://localhost:5000/debug/missions", timeout=5)
+            if missions_response.status_code == 200:
+                missions_data = missions_response.json()
+                mission_count = missions_data.get('count', 0)
+                print(f"\n📝 Total missions created: {mission_count}")
+                
+                if mission_count > 0:
+                    print("\nRecent missions:")
+                    for mission in missions_data.get('missions', [])[-3:]:
+                        print(f"  - {mission.get('title', 'N/A')} ({mission.get('status', 'N/A')})")
+                        
+        except Exception as e:
+            print(f"❌ Error checking server status: {e}")
     
     def reset_mock_data(self):
         """Reset mock server data."""
         print("🔄 Resetting mock data...")
         
         try:
-            import requests
             response = requests.post("http://localhost:5000/debug/reset")
             
             if response.status_code == 200:
