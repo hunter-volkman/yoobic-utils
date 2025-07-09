@@ -12,8 +12,31 @@ import os
 from datetime import datetime
 from typing import Dict, Any
 
-# Add the main module to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'yoobic', 'src'))
+# Add the main module to path - look for viam-yoobic directory
+possible_paths = [
+    "../viam-yoobic/src",  # If running from yoobic-utils
+    "./viam-yoobic/src",   # If viam-yoobic is in current dir
+    "../viam-yoobic/src",  # Standard relative path
+]
+
+module_path = None
+for path in possible_paths:
+    test_path = os.path.join(path, "models", "mission.py")
+    if os.path.exists(test_path):
+        module_path = path
+        break
+
+if not module_path:
+    print("❌ Could not find viam-yoobic module!")
+    print("Looked in these locations:")
+    for path in possible_paths:
+        abs_path = os.path.abspath(path)
+        print(f"  - {abs_path}")
+    print("\nPlease ensure viam-yoobic/src/models/mission.py exists")
+    sys.exit(1)
+
+print(f"✅ Found mission module at: {os.path.abspath(module_path)}")
+sys.path.insert(0, module_path)
 
 # Mock Viam imports for testing
 class MockComponentConfig:
@@ -30,11 +53,22 @@ def struct_to_dict(struct):
         return struct._data
     return struct
 
-# Monkey patch for testing
-import models.mission
-models.mission.struct_to_dict = struct_to_dict
-
-from models.mission import MissionManager
+# Monkey patch for testing - we need to patch before importing
+try:
+    # Try to import the real mission module first
+    from models.mission import MissionManager
+    
+    # Patch the struct_to_dict function in the mission module
+    import models.mission
+    models.mission.struct_to_dict = struct_to_dict
+    
+    print("✅ Successfully imported MissionManager")
+    
+except ImportError as e:
+    print(f"❌ Failed to import mission module: {e}")
+    print(f"Module path used: {module_path}")
+    print("Make sure viam-yoobic/src/models/mission.py exists and is valid Python code")
+    sys.exit(1)
 
 class MissionModuleTester:
     def __init__(self):
