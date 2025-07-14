@@ -1,10 +1,10 @@
 # YOOBIC Development Tools
 
-Development and testing tools for YOOBIC Public API.
+Development and testing tools for YOOBIC Public API (via Pret IT).
 
 ## Overview
 
-This repository contains the development tools needed to build, test, and debug the YOOBIC Public API.
+This repository contains the development tools needed to build, test, and debug the YOOBIC Public API (via Pret IT).
 
 ## Project Structure
 
